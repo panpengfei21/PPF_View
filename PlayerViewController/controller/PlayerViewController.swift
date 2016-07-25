@@ -13,27 +13,30 @@ import AFNetworking
 
 class PlayerViewController: UIViewController {
     // <测试！以下的可能要删除或修改<<<<<<<
-//    let urlPath = "http://play13.68mtv.com/play13/60400.mp4"
     let urlPath = "http://play.68mtv.com:8080/play3/45048.mp4"
     // >>>>>>>>
 
         /// 播放内容的观察环境
     static var itemContext:String = "ItemStatusContext"
     // MARK: -  UI
-        /// 播放View
-//    @IBOutlet weak var playerContainerV: UIView!
-//    @IBOutlet weak var playerV: PlayerView!
+    /// 播放器的容量View
     weak var playerContainerV: UIView!
+        /// 显示视频的view
     weak var playerV: PlayerView!
+        /// 播放器的控制器
     weak var playerControllerV:PlayerControllerView!
-    
+        /// 声音
     var volumeView:MPVolumeView!
+        /// 声音控制条
     var volumeSlider:UISlider!
+        /// 当开始改变当前进度时的播放状态,为了改变完成恢复原来状态做准备
+    var stateOfWhenChangeVideoProgressTimer:PlayerStatus?
     
     
     // MARK: - property
         /// 视频资料
-    var video:Video_M!
+//    var video:Video_M!
+    var module:VideoInfoModule!
         /// 播放哭
     var player:AVPlayer?
         /// 要播放的内容
@@ -41,7 +44,14 @@ class PlayerViewController: UIViewController {
         /// 周期性观察器  1秒观察一次
     var periodicTimeObserverForInterval:AnyObject?
         /// 竖屏
-    var portraitOrientation = true
+    var portraitOrientation:Bool// = true
+        {
+            get{
+                return originalOrientation == .Portrait
+            }
+    }
+        /// 屏幕原来的方向
+    var originalOrientation:UIDeviceOrientation = .Portrait
 
         ///  在后台
     var inBackground = false
@@ -53,12 +63,14 @@ class PlayerViewController: UIViewController {
         let barButton = UIBarButtonItem(image: UIImage(named: "back"), style: UIBarButtonItemStyle.Plain, target: self, action: #selector(PlayerViewController.back))
         self.navigationItem.leftBarButtonItem = barButton
         // Do any additional setup after loading the view.
-        self.title = video.name
         
         // <测试！以下的可能要删除或修改<<<<<<<
-        video = Video_M(id: "dd", category: "fds", playURL: urlPath)
+        let video = Video_M(id: "dd", category: "fds", playURL: urlPath)
+        video.introduces = "fasfajs;fj;as;ljkfd;lajsdf;ljkas;dfja;sdfjk"
+        module = VideoInfoModule(video: video)
         // >>>>>>>>
-        
+        self.title = module.video.name
+
         setupUI()
     }
     override func viewWillAppear(animated: Bool) {
@@ -79,13 +91,10 @@ class PlayerViewController: UIViewController {
                     fallthrough
                 }
             case .ReachableViaWiFi:
-                self?.setupPlayerWithVideo(self?.video)
+                self?.setupPlayerWithVideo(self?.module.video)
             }
         }
-        
-        
         AFNetworkReachabilityManager.sharedManager().startMonitoring()
-        
     }
     override func viewWillDisappear(animated: Bool) {
         super.viewWillDisappear(animated)
@@ -126,29 +135,38 @@ class PlayerViewController: UIViewController {
     
     // MARK: - UI 处理
     
-    /**
-     播放器变大或变小(横屏或竖屏)
-     
-     - parameter big: 是否变大
-     */
-    func playerChangeBig(big:Bool) {
-        guard portraitOrientation != !big else{
+    func changePlayerOrientation(deviceOrientation deO:UIDeviceOrientation){
+
+        guard  originalOrientation != deO else{
             return
         }
-        portraitOrientation = !big
-        self.navigationController?.setNavigationBarHidden(!portraitOrientation, animated: true)
         
-        UIView.animateWithDuration(Double(UINavigationControllerHideShowBarDuration), animations: {[weak self] in
-            self?.playerContainerV.transform = CGAffineTransformRotate(self!.playerContainerV.transform, CGFloat(big ? M_PI_2 : -M_PI_2))
-            self?.view.layoutIfNeeded()
-            }) { [weak self](finish) in
-                self?.syncLoaderSlider([], onlyRefresh: true)
+        var angle = M_PI_2
+        
+        switch (originalOrientation,deO) {
+        case (.Portrait,.LandscapeLeft),(.LandscapeRight,.Portrait):
+            angle = M_PI_2;
+        case (.LandscapeLeft,.Portrait),(.Portrait,.LandscapeRight):
+            angle = -M_PI_2;
+        case (.LandscapeLeft,.LandscapeRight),(.LandscapeRight,.LandscapeLeft):
+            angle = M_PI
+        default:
+            return
         }
+        originalOrientation = deO
+        self.navigationController?.setNavigationBarHidden(!portraitOrientation, animated: true)
+        UIView.animateWithDuration(Double(UINavigationControllerHideShowBarDuration), animations: {[weak self] in
+            self?.playerContainerV.transform = CGAffineTransformRotate(self!.playerContainerV.transform, CGFloat(angle))
+            self?.view.layoutIfNeeded()
+        }) { [weak self](finish) in
+            self?.syncLoaderSlider([], onlyRefresh: true)
+        }
+
     }
     
 
     
-    private func setupUI(){
+    func setupUI(){
         if self.playerContainerV == nil{
             let v = UIView()
             v.backgroundColor = UIColor.blackColor()
@@ -185,15 +203,7 @@ class PlayerViewController: UIViewController {
         }
     }
     
-    /*
     // MARK: - Navigation
-
-    // In a storyboard-based application, you will often want to do a little preparation before navigation
-    override func prepareForSegue(segue: UIStoryboardSegue, sender: AnyObject?) {
-        // Get the new view controller using segue.destinationViewController.
-        // Pass the selected object to the new view controller.
-    }
-    */
     /**
      后退
      */
@@ -214,7 +224,6 @@ extension PlayerViewController{
             guard let newStatus = change?[NSKeyValueChangeNewKey] as? NSNumber else{
                 return
             }
-            print("AVPlayerItemStatus.ReadyToPlay.rawValue : \(AVPlayerItemStatus.ReadyToPlay.rawValue)")
             switch newStatus.integerValue {
             case AVPlayerItemStatus.ReadyToPlay.rawValue:
                 if !inBackground{
@@ -241,12 +250,11 @@ extension PlayerViewController{
             }
             syncLoaderSlider(ranges)
         case "seekableTimeRanges":
-            guard let seek = change?[NSKeyValueChangeNewKey] as? [NSValue] else{
+            guard let _ = change?[NSKeyValueChangeNewKey] as? [NSValue] else{
                 return
             }
-            print("seek:\(seek)")
         default:
-            print("keyPath:\(keyPath)")
+            super.observeValueForKeyPath(keyPath, ofObject: object, change: change, context: context)
         }
     }
     
@@ -254,7 +262,6 @@ extension PlayerViewController{
      增加通知
      */
     private func addObserver(){
-        print(#function)
         playerItem?.addObserver(self, forKeyPath: "status", options: [.New], context: &PlayerViewController.itemContext) //视频状态
         playerItem?.addObserver(self, forKeyPath: "error", options: [.New], context: &PlayerViewController.itemContext) //视频错误信息
         playerItem?.addObserver(self, forKeyPath: "loadedTimeRanges", options: [.New], context: &PlayerViewController.itemContext) //已加载的范围
@@ -266,6 +273,8 @@ extension PlayerViewController{
         NSNotificationCenter.defaultCenter().addObserver(self, selector: #selector(PlayerViewController.newAccessLogEntry(_:)), name: AVPlayerItemNewAccessLogEntryNotification, object: playerItem) //新的可访问的资源
         NSNotificationCenter.defaultCenter().addObserver(self, selector: #selector(PlayerViewController.didEnterBackground(_:)), name: UIApplicationDidEnterBackgroundNotification, object: nil)
         NSNotificationCenter.defaultCenter().addObserver(self, selector: #selector(PlayerViewController.willEnterForeground(_:)), name: UIApplicationWillEnterForegroundNotification, object: nil)
+        NSNotificationCenter.defaultCenter().addObserver(self, selector: #selector(PlayerViewController.willResignActive(_:)), name: UIApplicationWillResignActiveNotification, object: nil)
+        NSNotificationCenter.defaultCenter().addObserver(self, selector: #selector(PlayerViewController.orientationDidChange(_:)), name: UIDeviceOrientationDidChangeNotification, object: nil)
         
         
         
@@ -300,19 +309,24 @@ extension PlayerViewController{
         NSNotificationCenter.defaultCenter().removeObserver(self, name: AVPlayerItemNewAccessLogEntryNotification, object: playerItem)
         NSNotificationCenter.defaultCenter().removeObserver(self, name: UIApplicationDidEnterBackgroundNotification, object: nil)
         NSNotificationCenter.defaultCenter().removeObserver(self, name: UIApplicationWillEnterForegroundNotification, object: nil)
+        NSNotificationCenter.defaultCenter().removeObserver(self, name: UIApplicationWillResignActiveNotification, object: nil)
+        NSNotificationCenter.defaultCenter().removeObserver(self, name: UIDeviceOrientationDidChangeNotification, object: nil)
         
         player?.removeTimeObserver(periodicTimeObserverForInterval!)
     }
     
 
-    
     // MARK: - 通知手柄
+    func orientationDidChange(notification:NSNotification){
+        changePlayerOrientation(deviceOrientation: UIDevice.currentDevice().orientation)
+    }
+    func willResignActive(notification:NSNotification){
+        pause()
+    }
     func willEnterForeground(notification:NSNotification){
-        print(#function)
         inBackground = false
     }
     func didEnterBackground(notification:NSNotification){
-        print(#function)
         inBackground = true
         pause()
     }
@@ -350,7 +364,6 @@ extension PlayerViewController{
      - parameter timeRange: 范围
      */
     func syncLoaderSlider(timeRange:[NSValue],onlyRefresh refresh:Bool = false){
-        print(#function)
         if refresh{
             self.playerControllerV.loadedV.syncUI()
             return
@@ -381,12 +394,11 @@ extension PlayerViewController{
 extension PlayerViewController{
     /**
      设置播放视频
-     
+
      - parameter video: 视频资料
+     - parameter reset: 重新设置新的视频资料,替换当前的视频
      */
     func setupPlayerWithVideo(video:Video_M?,reset:Bool = false){
-        print(#function)
-        print("reset:\(reset)")
         guard !videoForWifiOnly || (videoForWifiOnly && AFNetworkReachabilityManager.sharedManager().reachableViaWiFi) else{
             return
         }
@@ -398,10 +410,12 @@ extension PlayerViewController{
         }
         if reset{ removeObserver() }
         
+        pause()
         playerItem = AVPlayerItem(URL: url)
-        
         if reset{
-            player?.replaceCurrentItemWithPlayerItem(playerItem)
+            dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INTERACTIVE, 0)){
+                self.player?.replaceCurrentItemWithPlayerItem(self.playerItem)
+            }
             self.playerControllerV.loadingVideo(true)
             self.playerControllerV.errorText = nil
         }else {
@@ -460,14 +474,13 @@ extension PlayerViewController{
      减音量
      */
     func reducesVolume(){
-        if player?.volume != nil //&& player?.volume > 0.0
+        if player?.volume != nil
         {
             if player?.volume > 0.0{
                 player?.volume  -= 0.05
             }else{
                 player?.volume = 0.0
             }
-//            player!.volume -= 0.05
             volumeSlider.setValue(player!.volume, animated: true)
             volumeSlider.sendActionsForControlEvents(UIControlEvents.TouchUpInside)
         }
@@ -518,7 +531,6 @@ extension PlayerViewController{
 // MARK: - PlayerControllerView_Delegate
 extension PlayerViewController:PlayerControllerView_Delegate{
     func playerControllerView(cv: PlayerControllerView, panWithDirection direction: GestureDirection, addOrReduce add: Bool) {
-        print(#function)
         switch direction {
         case .Horizontal:
             seekCurrentTimeOffsetSecond(add ? 7 : -7)
@@ -527,6 +539,22 @@ extension PlayerViewController:PlayerControllerView_Delegate{
                 addVolume()
             }else{
                 reducesVolume()
+            }
+        }
+    }
+    func playerControllerView(cv: PlayerControllerView, panWithDirection direction: GestureDirection, endState state: UIGestureRecognizerState) {
+        if state == .Began{
+            stateOfWhenChangeVideoProgressTimer = cv.status
+        }else if state == .Ended{
+            if let state = stateOfWhenChangeVideoProgressTimer{
+                if cv.status != state{
+                    state == .Playing ? play() : pause()
+                }
+                stateOfWhenChangeVideoProgressTimer = nil
+            }
+        }else if state == .Cancelled{
+            if stateOfWhenChangeVideoProgressTimer != nil{
+                stateOfWhenChangeVideoProgressTimer = nil
             }
         }
     }
@@ -546,16 +574,17 @@ extension PlayerViewController:PlayerControllerView_Delegate{
         }
     }
     func playerControllerViewClickOnReplay(cv: PlayerControllerView) {
-        setupPlayerWithVideo(video, reset: true)
+        setupPlayerWithVideo(module.video, reset: true)
     }
     
     func playerControllerView(cv: PlayerControllerView, didClickOnBigSmallButton button: UIButton) {
-        playerChangeBig(portraitOrientation)
         if portraitOrientation{
-            button.setImage(UIImage(named: "big"), forState: UIControlState.Normal)
-        }else{
+            changePlayerOrientation(deviceOrientation: .LandscapeLeft)
             button.setImage(UIImage(named: "small"), forState: UIControlState.Normal)
-        }
+        }else{
+            changePlayerOrientation(deviceOrientation: .Portrait)
+            button.setImage(UIImage(named: "big"), forState: UIControlState.Normal)
+        }        
     }
 }
 

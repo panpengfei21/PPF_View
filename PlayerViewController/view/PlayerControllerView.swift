@@ -45,6 +45,7 @@ enum GestureDirection {
 
 protocol PlayerControllerView_Delegate:class {
     func playerControllerView(cv:PlayerControllerView,panWithDirection direction:GestureDirection,addOrReduce add:Bool)
+    func playerControllerView(cv:PlayerControllerView,panWithDirection direction:GestureDirection,endState state:UIGestureRecognizerState)
     func playerControllerView(cv:PlayerControllerView,didClickPlayPauseButtonWithStatus status:PlayerStatus)
     func playerControllerView(cv:PlayerControllerView,changeSliderValue value:Float)
     func playerControllerViewClickOnReplay(cv:PlayerControllerView)
@@ -94,7 +95,6 @@ class PlayerControllerView: UIView {
     }
     
     required init?(coder aDecoder: NSCoder) {
-        print(#function)
         super.init(coder: aDecoder)
         setupUI()
     }
@@ -301,35 +301,42 @@ extension PlayerControllerView{
     }
     
     func panToChangeVolume(pan:UIPanGestureRecognizer){
-        switch pan.state {
-        case .Changed:
-            let point = pan.translationInView(pan.view)
-            let x = point.x
-            let y = point.y
-            
-            let absX = abs(x)
-            let absY = abs(y)
-            
-            var angle:CGFloat?
-            if absX != 0 && absY != 0{
-                angle = asin(absY / absX)
-            }
-            
-            
-            if absX == 0 || angle >= CGFloat(M_PI * 4 / 9){ // 20度的方向
-                if absY >= 10{
-                    delegate?.playerControllerView(self, panWithDirection: GestureDirection.Vertical, addOrReduce: y < 0)
-                    pan.setTranslation(CGPoint.zero, inView: pan.view)
-                }
-            }else if absY == 0 || angle <= CGFloat(M_PI / 18){
-                if absX >= 10{
-                    delegate?.playerControllerView(self, panWithDirection: GestureDirection.Horizontal, addOrReduce: x > 0)
-                    pan.setTranslation(CGPoint.zero, inView: pan.view)
-                }
-            }
-        default:
-            break
+        
+        let point = pan.translationInView(pan.view)
+        let x = point.x
+        let y = point.y
+        
+        let absX = abs(x)
+        let absY = abs(y)
+        
+        var angle:CGFloat?
+        if absX != 0 && absY != 0{
+            angle = asin(absY / absX)
         }
+        
+
+        if absX == 0 || angle >= CGFloat(M_PI * 4 / 9){ // 20度的方向
+            if absY >= 10 && pan.state == .Changed{
+                delegate?.playerControllerView(self, panWithDirection: GestureDirection.Vertical, addOrReduce: y < 0)
+                pan.setTranslation(CGPoint.zero, inView: pan.view)
+            }
+            if pan.state == .Began || pan.state == .Ended || pan.state == .Cancelled{
+                delegate?.playerControllerView(self, panWithDirection: .Vertical, endState: pan.state)
+            }
+
+        }else if absY == 0 || angle <= CGFloat(M_PI / 18){
+            if absX >= 10 && pan.state == .Changed{
+                delegate?.playerControllerView(self, panWithDirection: .Horizontal, addOrReduce: x > 0)
+                pan.setTranslation(CGPoint.zero, inView: pan.view)
+            }
+            if pan.state == .Began || pan.state == .Ended || pan.state == .Cancelled{
+                delegate?.playerControllerView(self, panWithDirection: .Horizontal, endState: pan.state)
+            }
+        }else{
+            print("absY:\(absY)")
+            print("angle:\(angle)")
+        }
+        
     }
     
     @IBAction func playSlider(sender: PlayerSlider) {
