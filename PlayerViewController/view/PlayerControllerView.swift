@@ -53,6 +53,17 @@ protocol PlayerControllerView_Delegate:class {
 }
 
 class PlayerControllerView: UIView {
+    
+    /**
+     控制
+     
+     - Schedule: 进度控制
+     - Volume:   音量控制
+     */
+    enum ControlModel {
+        case Schedule
+        case Volume
+    }
         /// 错误信息的固定内容
     let fixErrorLabel = "error"
     // MARK: - UI
@@ -76,15 +87,35 @@ class PlayerControllerView: UIView {
     @IBOutlet weak var bottomBarV: UIView!
         /// 重新加载
     @IBOutlet weak var replayB: UIButton!
-        /// 计时器
-    var timer:NSTimer!
+        /// 进度控制容器
+    @IBOutlet weak var scheduleControlContainerV: UIView!
+        /// 进度控制图片
+    @IBOutlet weak var scheduleControlIV: UIImageView!
+        /// 进度控制总时长
+    @IBOutlet weak var scheduleControlTotalL: UILabel!
+        /// 进度控制当前时长
+    @IBOutlet weak var scheduleControlCurrentL: UILabel!
+    
     
     // MARK: - property
+    /// 计时器
+    var timer:NSTimer!
         /// 播放器的状态
     private(set) var status:PlayerStatus = .Pause
     
         /// 是否加载状态中
     private(set) var loading:Bool = false
+    
+        /// 当前被手势控制的
+    private var controlModel:ControlModel? {
+        didSet{
+            if controlModel == .Schedule {
+                scheduleControlContainerV.hidden = false
+            }else if controlModel == nil{
+                scheduleControlContainerV.hidden = true
+            }
+        }
+    }
     
     weak var delegate:PlayerControllerView_Delegate?
     
@@ -110,7 +141,21 @@ class PlayerControllerView: UIView {
     
     
     // MARK: - 更新UI
-    
+    /**
+     设置当前显示的控制进度
+     
+     - parameter cs:  当前时长
+     - parameter ts:  总时长
+     - parameter add: 是否是增长,或减小
+     */
+    func setScheduleControlWithCurrentSeconds(cs:Int,totalSeconds ts:Int,add:Bool){
+        guard controlModel == .Schedule else{
+            return
+        }
+        scheduleControlIV.image = UIImage(named: add ? "Forward" : "go-back")
+        scheduleControlTotalL.text = "\(ts / 60):\(ts % 60)"
+        scheduleControlCurrentL.text = "\(cs / 60):\(cs % 60)"
+    }
         /// 错误信息,可以用来设置错误信息
     var errorText:String?{
         get{
@@ -292,16 +337,10 @@ extension PlayerControllerView{
     }
     
     func tapToShowOrHideBarWithGesture(gesture:UITapGestureRecognizer){
-        print(#function)
-        if bottomBarIsShow(){
-            hideBar()
-        }else{
-            showBar()
-        }
+        bottomBarIsShow() ? hideBar() : showBar()
     }
     
     func panToChangeVolume(pan:UIPanGestureRecognizer){
-        
         let point = pan.translationInView(pan.view)
         let x = point.x
         let y = point.y
@@ -315,26 +354,44 @@ extension PlayerControllerView{
         }
         
 
-        if absX == 0 || angle >= CGFloat(M_PI * 4 / 9){ // 20度的方向
-            if absY >= 10 && pan.state == .Changed{
+        if absX == 0 || angle >= CGFloat(M_PI * 7 / 18){ // 40度的方向
+            if absY >= 10 && pan.state == .Changed && controlModel == ControlModel.Volume{
                 delegate?.playerControllerView(self, panWithDirection: GestureDirection.Vertical, addOrReduce: y < 0)
                 pan.setTranslation(CGPoint.zero, inView: pan.view)
             }
             if pan.state == .Began || pan.state == .Ended || pan.state == .Cancelled{
+                if pan.state == .Began{
+                    controlModel = .Volume
+                }else{
+                    controlModel = nil
+                }
                 delegate?.playerControllerView(self, panWithDirection: .Vertical, endState: pan.state)
             }
 
-        }else if absY == 0 || angle <= CGFloat(M_PI / 18){
-            if absX >= 10 && pan.state == .Changed{
+        }else if absY == 0 || angle <= CGFloat(M_PI / 9) {
+            if absX >= 10 && pan.state == .Changed && controlModel == ControlModel.Schedule{
                 delegate?.playerControllerView(self, panWithDirection: .Horizontal, addOrReduce: x > 0)
                 pan.setTranslation(CGPoint.zero, inView: pan.view)
             }
             if pan.state == .Began || pan.state == .Ended || pan.state == .Cancelled{
+                if pan.state == .Began{
+                    controlModel = .Schedule
+                }else{
+                    controlModel = nil
+                }
                 delegate?.playerControllerView(self, panWithDirection: .Horizontal, endState: pan.state)
             }
-        }else{
-            print("absY:\(absY)")
-            print("angle:\(angle)")
+        }else// if pan.state == .Ended || pan.state == .Cancelled
+        {
+            if controlModel != nil{
+                switch controlModel! {
+                case .Volume:
+                    delegate?.playerControllerView(self, panWithDirection: .Vertical, endState: pan.state)
+                case .Schedule:
+                    delegate?.playerControllerView(self, panWithDirection: .Horizontal, endState: pan.state)
+                }
+                controlModel = nil
+            }
         }
         
     }

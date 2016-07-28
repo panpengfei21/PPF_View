@@ -35,7 +35,6 @@ class PlayerViewController: UIViewController {
     
     // MARK: - property
         /// 视频资料
-//    var video:Video_M!
     var module:VideoInfoModule!
         /// 播放哭
     var player:AVPlayer?
@@ -521,6 +520,11 @@ extension PlayerViewController{
         // TODO: 可以加一个功能block,完成时,应该做什么(继续播放)
         pause()
         playerItem?.stepByCount(Int(second))
+        
+        guard let ts = durationOfPlayerItem(playerItem),cs = playerItem?.currentTime().seconds else{
+            return
+        }
+        playerControllerV.setScheduleControlWithCurrentSeconds(Int(cs), totalSeconds: Int(ts), add: second > 0)
     }
     
     
