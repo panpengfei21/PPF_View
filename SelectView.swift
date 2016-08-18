@@ -14,22 +14,32 @@ import UIKit
     optional func selectView(sv:SelectView,didSelectTitle st:String)
 }
 
+//@IBDesignable
 class SelectView: UIView {
     // MARK: - property
     
     /// 滑条和选中字的颜色
-    var svSelectmainColor:UIColor{
+    @IBInspectable
+    var svSelectmainColor:UIColor = UIColor.blueColor(){
         didSet{
             slider?.backgroundColor = svSelectmainColor
             bottomView?.backgroundColor = svSelectmainColor
             setColorOfButtonTitleWithIndex(currentIndex)
         }
     }
+    @IBInspectable
+    var svUnselectedTextColor:UIColor = UIColor.blackColor()
     /// 字体
     var svFont:UIFont = UIFont.systemFontOfSize(15)
     
     /// 选择项的 几个选项。
-    var items:[String]
+    @IBInspectable
+    var itemsStr:String = ""{
+        didSet{
+            items = itemsStr.componentsSeparatedByString(",")
+        }
+    }
+    var items:[String] = ["无"]
     ///滑条
     var slider:UIView?
     
@@ -49,20 +59,34 @@ class SelectView: UIView {
     var itemsButton = [UIButton]()
 
     ///代理
-    var delegate:SelectView_delegate?
+    weak var delegate:SelectView_delegate?
     
     // MARK:初始化
-    init (frame:CGRect,withItems items:[String],withColor c:UIColor){
+    init (frame:CGRect,withItems items:[String],withColor c:UIColor = UIColor.blueColor()){
         svSelectmainColor = c
         self.items = items
         super.init(frame: frame)
-        initUIWithRect(frame)
     }
     required init?(coder aDecoder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        super.init(coder: aDecoder)
     }
-    
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        setupUIWithItems(items)
+    }
     // MARK: - UI 变化
+    
+    func setupUIWithItems(items:[String]){
+        guard !items.isEmpty else{
+            print("items 的数量为零。")
+            return
+        }
+        for v in subviews{
+            v.removeFromSuperview()
+        }
+        self.items = items
+        initUIWithRect(frame)
+    }
     private func initUIWithRect(rect:CGRect){
         guard items.count > 0 else {
             print("items 的数量为零。")
@@ -94,15 +118,15 @@ class SelectView: UIView {
                 let button = UIButton(frame: buFrame)
                 
                 let attributes = [NSFontAttributeName:svFont,
-                    NSForegroundColorAttributeName:UIColor.blackColor()]
+                    NSForegroundColorAttributeName:svUnselectedTextColor]
                 let buAString = NSAttributedString(string: items[i], attributes: attributes)
                 button.setAttributedTitle(buAString, forState: UIControlState.Normal)
-                button.addTarget(self, action: Selector("tapButton:"), forControlEvents: UIControlEvents.TouchUpInside)
+                button.addTarget(self, action: #selector(SelectView.tapButton(_:)), forControlEvents: UIControlEvents.TouchUpInside)
                 
                 self.addSubview(button)
                 itemsButton.append(button)
             }
-            
+            selectButtonWithIndex(currentIndex)
             //滑条
             let sliderHeight:CGFloat = 2.0
             let sliderFrame = CGRect(x: 0, y: rect.size.height - sliderHeight, width: 0.65 * stepDistance, height: sliderHeight)
@@ -119,6 +143,9 @@ class SelectView: UIView {
      - parameter index: 索引
      */
     private func setColorOfButtonTitleWithIndex(index:Int){
+        guard (0 ..< itemsButton.count).contains(index) else{
+            return
+        }
         if let attr0 = itemsButton[index].currentAttributedTitle{
             let attr = NSMutableAttributedString(attributedString: attr0)
             attr.addAttribute(NSForegroundColorAttributeName, value: svSelectmainColor, range: NSRange(location: 0, length: attr.length))
@@ -165,57 +192,13 @@ class SelectView: UIView {
         }
         if let attr0 = itemsButton[index].currentAttributedTitle{
             let attr = NSMutableAttributedString(attributedString: attr0)
-            attr.addAttribute(NSForegroundColorAttributeName, value: UIColor.blackColor(), range: NSRange(location: 0, length: attr.length))
+            attr.addAttribute(NSForegroundColorAttributeName, value: svUnselectedTextColor, range: NSRange(location: 0, length: attr.length))
 
             itemsButton[index].setAttributedTitle(attr, forState: UIControlState.Normal)
         }
     }
 }
 
-
-extension SelectView{
-    
-    /**
-     选项
-     
-     - added:     我加入的
-     - all:       所有
-     - *attention : 我关注的
-     */
-    enum SelectItems:String{
-        /**
-         我加入的
-         
-         - returns: 我加入的
-         */
-        case added = "我加入的"
-        /**
-         所有
-         
-         - returns: 所有
-         */
-        case all   = "所有"
-        /**
-         我关注的
-         
-         - returns: 我关注的
-         */
-        case attention = "我关注的"
-        
-        /// 在学科组里的select view 的选项
-        static var itemsOfSubjects:[String]{
-            return [SelectItems.added.rawValue,
-                SelectItems.all.rawValue]
-        }
-        
-        /// 在协作组里的select view 的选项
-        static var itemsOfCooperation:[String]{
-            return [SelectItems.added.rawValue,
-                SelectItems.attention.rawValue,
-                SelectItems.all.rawValue]
-        }
-    }
-}
 
 
 
