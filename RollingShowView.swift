@@ -27,7 +27,9 @@ class RollingShowView: UIView {
         case Right
     }
     // MARK: - 数据
-        /// 图片的URL
+    /// 动画时长
+    var animationDuration:Double = 0.5
+    /// 图片的URL
     private var imageURLs:[String]!
     var index:Int = 0 {
         didSet{
@@ -38,7 +40,7 @@ class RollingShowView: UIView {
     weak var delegate:RollingShowView_delegate?
     
     // MARK: - UI
-    var imageViewContentMode:UIViewContentMode = UIViewContentMode.ScaleAspectFill
+    var imageViewContentMode:UIViewContentMode = UIViewContentMode.ScaleToFill
         /// 动画的容器,要切换的动画view都放在这个里面.
     var container:UIView!
         /// 展示的imageView
@@ -127,6 +129,9 @@ class RollingShowView: UIView {
         showImageView?.mas_remakeConstraints{[weak weakSelf =  self] in
             $0.edges.equalTo()(weakSelf?.container)
         }
+        temImageView?.mas_remakeConstraints(){[weak self] in
+            $0.edges.equalTo()(self?.container)
+        }
         
         indexView?.mas_remakeConstraints(){[weak self] in
             $0.centerX.equalTo()(self!.mas_centerX)
@@ -134,6 +139,7 @@ class RollingShowView: UIView {
             $0.width.equalTo()(self?.indexView.bounds.width)
             $0.height.equalTo()(self?.indexView.bounds.height);
         }
+        
         super.updateConstraints()
     }
     
@@ -215,11 +221,12 @@ class RollingShowView: UIView {
                 
                 self?.timerIsValid = false
                 self?.container.addSubview(t)
-                UIView.transitionFromView(s, toView: t, duration: 0.7, options: [option,.BeginFromCurrentState]){
+                UIView.transitionFromView(s, toView: t, duration: self!.animationDuration, options: [option,.BeginFromCurrentState]){
                     if $0{
                         self?.index = i;
                         self?.showImageView = self?.temImageView
                         self?.showImageView?.userInteractionEnabled = true
+                        self?.setNeedsUpdateConstraints()
                         let tap = UITapGestureRecognizer(target: self, action: #selector(RollingShowView.tap(_:)))
                         self?.showImageView?.addGestureRecognizer(tap)
                         self?.temImageView = nil;
