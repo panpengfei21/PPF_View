@@ -28,7 +28,7 @@ class RollingShowView: UIView {
     }
     // MARK: - 数据
     /// 动画时长
-    var animationDuration:Double = 0.5
+    var animationDuration:Double = 0.3
     /// 图片的URL
     private var imageURLs:[String]!
     var index:Int = 0 {
@@ -126,11 +126,11 @@ class RollingShowView: UIView {
         container?.mas_remakeConstraints(){[weak self] in
             $0.edges.equalTo()(self)
         }
+        if showImageView.superview == nil{
+            container.addSubview(showImageView)
+        }
         showImageView?.mas_remakeConstraints{[weak weakSelf =  self] in
             $0.edges.equalTo()(weakSelf?.container)
-        }
-        temImageView?.mas_remakeConstraints(){[weak self] in
-            $0.edges.equalTo()(self?.container)
         }
         
         indexView?.mas_remakeConstraints(){[weak self] in
@@ -139,7 +139,6 @@ class RollingShowView: UIView {
             $0.width.equalTo()(self?.indexView.bounds.width)
             $0.height.equalTo()(self?.indexView.bounds.height);
         }
-        
         super.updateConstraints()
     }
     
@@ -191,7 +190,7 @@ class RollingShowView: UIView {
         temImageView = UIImageView(frame: self.bounds)
         temImageView?.contentMode = imageViewContentMode
         temImageView?.clipsToBounds = true
-        temImageView?.yy_setImageWithURL(url, placeholder: UIImage(named: "loading"))
+        temImageView?.yy_setImageWithURL(url, placeholder: UIImage(named: "p1-lunbo"))
         handle(error: nil)
 
     }
