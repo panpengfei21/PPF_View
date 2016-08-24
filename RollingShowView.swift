@@ -16,8 +16,6 @@ protocol RollingShowView_delegate:class {
 
 class RollingShowView: UIView {
 
-    /// 高宽比
-    static let rate:CGFloat = 380.0 / 750.0
     /**
      滑动的方向
      
@@ -40,6 +38,7 @@ class RollingShowView: UIView {
     weak var delegate:RollingShowView_delegate?
     
     // MARK: - UI
+    var imageViewContentMode:UIViewContentMode = UIViewContentMode.ScaleAspectFill
         /// 动画的容器,要切换的动画view都放在这个里面.
     var container:UIView!
         /// 展示的imageView
@@ -73,7 +72,8 @@ class RollingShowView: UIView {
         }
         if showImageView == nil{
             showImageView = UIImageView()
-            showImageView.contentMode = UIViewContentMode.ScaleAspectFill
+            showImageView.contentMode = imageViewContentMode
+            showImageView.clipsToBounds = true
             container.addSubview(showImageView)
         }
         
@@ -183,7 +183,8 @@ class RollingShowView: UIView {
             return
         }
         temImageView = UIImageView(frame: self.bounds)
-        temImageView?.contentMode = UIViewContentMode.ScaleAspectFill
+        temImageView?.contentMode = imageViewContentMode
+        temImageView?.clipsToBounds = true
         temImageView?.yy_setImageWithURL(url, placeholder: UIImage(named: "loading"))
         handle(error: nil)
 
