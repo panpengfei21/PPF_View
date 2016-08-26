@@ -28,7 +28,9 @@ class RollingShowView: UIView {
     }
     // MARK: - 数据
     /// 动画时长
-    var animationDuration:Double = 0.3
+    var animationDuration:Double = 0.5
+    /// 占位图名称
+    var placeholderName = "p1-lunbo"
     /// 图片的URL
     private var imageURLs:[String]!
     var index:Int = 0 {
@@ -45,8 +47,6 @@ class RollingShowView: UIView {
     var container:UIView!
         /// 展示的imageView
     var showImageView:UIImageView!
-        /// 临时imageView
-    var temImageView:UIImageView?
         /// 索引view
     var indexView:IndexView!
     
@@ -75,17 +75,17 @@ class RollingShowView: UIView {
         if showImageView == nil{
             showImageView = UIImageView()
             showImageView.contentMode = imageViewContentMode
+            showImageView?.userInteractionEnabled = true
             showImageView.clipsToBounds = true
             container.addSubview(showImageView)
         }
         
         if !imageURLs.isEmpty {
             let url = NSURL(string: imageURLs![index])
-            showImageView?.yy_setImageWithURL(url, placeholder: UIImage(named: "p1-lunbo"))
+            showImageView?.yy_setImageWithURL(url, placeholder: UIImage(named:placeholderName))
         }else{
             print("imageURLs 没有数据")
         }
-        showImageView?.userInteractionEnabled = true
         
         if (indexView == nil) || (indexView?.total != imageURLs?.count){
             indexView?.removeFromSuperview()
@@ -126,9 +126,6 @@ class RollingShowView: UIView {
         container?.mas_remakeConstraints(){[weak self] in
             $0.edges.equalTo()(self)
         }
-        if showImageView.superview == nil{
-            container.addSubview(showImageView)
-        }
         showImageView?.mas_remakeConstraints{[weak weakSelf =  self] in
             $0.edges.equalTo()(weakSelf?.container)
         }
@@ -144,6 +141,7 @@ class RollingShowView: UIView {
     
     // MARK: - 手势
     func swip(swip:UISwipeGestureRecognizer){
+        timerIsValid = false
         switch swip.direction {
         case UISwipeGestureRecognizerDirection.Right:
             transitionViewWithDirection(RollingShowView.swipDirection.Right)
@@ -171,30 +169,6 @@ class RollingShowView: UIView {
             transitionViewWithDirection(RollingShowView.swipDirection.Left)
         }
     }
-    /**
-    设置临时image view
-     
-     - parameter index:  索引
-     - parameter handle: 图片下载完成时
-     */
-    private func setTemImageViewWithIndex(index:Int,successHandle handle:(error:NSError?)->()){
-        guard index >= 0 && index < imageURLs.count else{
-            return
-        }
-        guard let path = imageURLs?[index] else{
-            return
-        }
-        guard let url = NSURL(string: path) else{
-            return
-        }
-        temImageView = UIImageView(frame: self.bounds)
-        temImageView?.contentMode = imageViewContentMode
-        temImageView?.clipsToBounds = true
-        temImageView?.yy_setImageWithURL(url, placeholder: UIImage(named: "p1-lunbo"))
-        handle(error: nil)
-
-    }
-    
     
     /**
      切换View
@@ -206,36 +180,25 @@ class RollingShowView: UIView {
         switch dir {
         case .Left:
             i += 1;
+            if i >= imageURLs.count{
+                i = 0;
+            }
         case .Right:
             i -= 1;
-        }
-        
-        if i >= imageURLs.count{
-            i = 0;
-        }
-
-        setTemImageViewWithIndex(i){[weak self](error:NSError?) in
-            let option = dir == swipDirection.Left ? UIViewAnimationOptions.TransitionCurlUp : UIViewAnimationOptions.TransitionCurlDown
-            if let s = self?.showImageView,t = self?.temImageView{
-                
-                self?.timerIsValid = false
-                self?.container.addSubview(t)
-                UIView.transitionFromView(s, toView: t, duration: self!.animationDuration, options: [option,.BeginFromCurrentState]){
-                    if $0{
-                        self?.index = i;
-                        self?.showImageView = self?.temImageView
-                        self?.showImageView?.userInteractionEnabled = true
-                        self?.setNeedsUpdateConstraints()
-                        let tap = UITapGestureRecognizer(target: self, action: #selector(RollingShowView.tap(_:)))
-                        self?.showImageView?.addGestureRecognizer(tap)
-                        self?.temImageView = nil;
-                    }
-                    self?.timerIsValid = true
-                }
-            }else{
-                self?.setupUI()
+            if i < 0{
+                i = imageURLs.count - 1
             }
         }
+        
+
+        let option = dir == swipDirection.Left ? UIViewAnimationOptions.TransitionCurlUp : UIViewAnimationOptions.TransitionCurlDown
+        UIView.transitionWithView(showImageView, duration: self.animationDuration, options: [option,.BeginFromCurrentState], animations: {
+            self.showImageView.yy_setImageWithURL(NSURL(string: self.imageURLs[i]), placeholder: UIImage(named:self.placeholderName))
+            }, completion: { (finish) in
+                self.index = i;
+                self.timerIsValid = true
+        })
+        
     }
 
     
