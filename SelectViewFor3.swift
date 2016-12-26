@@ -38,12 +38,15 @@ class SelectView: UIView {
     @IBInspectable
     var itemsStr:String = ""{
         didSet{
-//            items = itemsStr.componentsSeparatedByString(",")
             items = itemsStr.components(separatedBy: ",")
         }
     }
     
+    
+    /// 选项
     var items:[String] = ["无"]
+    /// 扩展的数字
+    var extraNum:[Int]?
     ///滑条
     var slider:UIView?
     
@@ -66,9 +69,10 @@ class SelectView: UIView {
     weak var delegate:SelectView_delegate?
     
     // MARK:初始化
-    init (frame:CGRect,withItems items:[String],withColor c:UIColor = UIColor.blue){
+    init (frame:CGRect,withItems items:[String],extraNumber exNum:[Int]? = nil,withColor c:UIColor = UIColor.blue){
         svSelectmainColor = c
         self.items = items
+        self.extraNum = exNum
         super.init(frame: frame)
     }
     required init?(coder aDecoder: NSCoder) {
@@ -76,11 +80,17 @@ class SelectView: UIView {
     }
     override func layoutSubviews() {
         super.layoutSubviews()
-        setupUIWithItems(items: items)
+        setupUIWithItems(items: items,extraNum: extraNum)
     }
+    
     // MARK: - UI 变化
     
-    func setupUIWithItems(items:[String]){
+    /// 改变数据并初始化UI
+    ///
+    /// - Parameters:
+    ///   - items: 选择
+    ///   - exNu: 扩展的数字
+    func setupUIWithItems(items:[String],extraNum exNu:[Int]? = nil){
         guard !items.isEmpty else{
             print("items 的数量为零。")
             return
@@ -89,8 +99,32 @@ class SelectView: UIView {
             v.removeFromSuperview()
         }
         self.items = items
+        self.extraNum = exNu
         initUIWithRect(rect: frame)
     }
+    
+    
+    /// 改变扩散的数字
+    ///
+    /// - Parameters:
+    ///   - num: 数字
+    ///   - index: 数字所在的索引
+    /// - Returns: bool
+    func setExtra(number num:Int,inIndex index:Int) -> Bool{
+        guard items.count == extraNum?.count else {
+            return false
+        }
+        guard num < items.count else {
+            return false
+        }
+        
+        return setupButtonAttributedTitle(button: self.itemsButton[index], inIndex: index)
+    }
+    
+    
+    
+    
+    /// 初始化UI
     private func initUIWithRect(rect:CGRect){
         guard items.count > 0 else {
             print("items 的数量为零。")
@@ -121,16 +155,13 @@ class SelectView: UIView {
                 let buFrame = CGRect(x: CGFloat(i) * stepDistance, y: 0, width: stepDistance, height: rect.height)
                 let button = UIButton(frame: buFrame)
                 
-                let attributes = [NSFontAttributeName:svFont,
-                    NSForegroundColorAttributeName:svUnselectedTextColor] as [String : Any]
-                let buAString = NSAttributedString(string: items[i], attributes: attributes)
-                button.setAttributedTitle(buAString, for: UIControlState.normal)
+                setupButtonAttributedTitle(button: button, inIndex: i)
+                
                 button.addTarget(self, action: #selector(SelectView.tapButton), for: UIControlEvents.touchUpInside)
                 
                 self.addSubview(button)
                 itemsButton.append(button)
             }
-            selectButtonWithIndex(index: currentIndex)
             //滑条
             let sliderHeight:CGFloat = 2.0
             let sliderFrame = CGRect(x: 0, y: rect.size.height - sliderHeight, width: 0.65 * stepDistance, height: sliderHeight)
@@ -139,6 +170,30 @@ class SelectView: UIView {
             slider?.center.x = self.itemsButton[currentIndex].center.x
             self.addSubview(slider!)
         }
+    }
+    
+    
+    /// 设置按钮显示的字
+    ///
+    /// - Parameters:
+    ///   - button: 按钮
+    ///   - index: 索引
+    /// - Returns: bool
+    @discardableResult
+    private func setupButtonAttributedTitle(button:UIButton,inIndex index:Int) -> Bool{
+        guard index < items.count else {
+            return false
+        }
+        
+        let attributes = [NSFontAttributeName:svFont,
+                          NSForegroundColorAttributeName:currentIndex == index ? svSelectmainColor : svUnselectedTextColor] as [String : Any]
+        var str = items[index]
+        if items.count == extraNum?.count{
+            str += "(" + "\(extraNum![index])" + ")"
+        }
+        let buAString = NSAttributedString(string: str, attributes: attributes)
+        button.setAttributedTitle(buAString, for: UIControlState.normal)
+        return true
     }
     
     /**
