@@ -27,9 +27,16 @@ class CarouselView: UIView, Nextable{
     /// item 之间的距离
     private var itemSpace:CGFloat = 1
     /// 当前的索引
-    var currentIndex:Int = 0
+    var currentIndex:Int = 0{
+        didSet{
+            indexView?.index = currentIndex
+        }
+    }
     /// 要显示的内容
     weak var collectionView:UICollectionView!
+    
+    /// 索引
+    weak var indexView:IndexView?
     /// 代理
     weak var delegate:CarouselView_delegate!
         

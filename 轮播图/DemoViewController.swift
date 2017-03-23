@@ -23,6 +23,10 @@ class DemoViewController: UIViewController {
         carousel.register()
         view.addSubview(carousel)
         
+        let indexV = IndexView(amountOfIndexs: 10)
+        carousel.addSubview(indexV!)
+        carousel.indexView = indexV
+        
         timer = CarouselTimer()
         timer.next = carousel
         timer.start()
